@@ -5,16 +5,22 @@ import org.apache.commons.cli.*;
 import java.util.List;
 import java.util.Scanner;
 
+import com.nexmo.client.HttpWrapper;
 import com.nexmo.client.NexmoClient;
 import com.nexmo.client.account.BalanceResponse;
 import com.nexmo.client.sms.MessageStatus;
 import com.nexmo.client.sms.SmsSubmissionResponse;
 import com.nexmo.client.sms.messages.TextMessage;
+import com.nexmo.client.messaging.MessagingClient;
+import com.nexmo.client.messaging.MessageSubmissionResponse;
 
 public class NexmoApp {
     private NexmoClient nexmo;
+    private MessagingClient messagingClient;
     private String NEXMO_API_KEY = System.getenv("NEXMO_API_KEY");
     private String NEXMO_API_SECRET = System.getenv("NEXMO_API_SECRET");
+    private String NEXMO_APP_ID = System.getenv("NEXMO_APP_ID");
+    private String NEXMO_PRIVATE_KEY = System.getenv("NEXMO_PRIVATE_KEY");
 
     public NexmoApp(CommandLine cmd) {
         if (cmd.hasOption("key")) {
@@ -27,6 +33,17 @@ public class NexmoApp {
         .apiKey(this.NEXMO_API_KEY)
         .apiSecret(this.NEXMO_API_SECRET)
         .build();
+
+        try {
+            this.messagingClient = MessagingClient.builder()
+            .applicationId(this.NEXMO_APP_ID)
+            .privateKeyPath(this.NEXMO_PRIVATE_KEY)
+            .build();
+        } catch (Exception e) {
+            System.err.println("Error building Messaging Client.");
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     public static void main( String[] args ) {
@@ -40,6 +57,7 @@ public class NexmoApp {
         try {
             // parse the command line arguments
             CommandLine line = parser.parse( options, args );
+            NexmoApp app = new NexmoApp(line);
 
             if (line.hasOption("help")) {
                 printHelp(options);
@@ -52,7 +70,6 @@ public class NexmoApp {
                 printHelp(options);
                 System.exit(1);
             }
-            NexmoApp app = new NexmoApp(line);
 
             String command = "help";
             if (extraArgs.size() == 1) {
@@ -103,12 +120,11 @@ public class NexmoApp {
         System.out.println("Type your message:");
         String MSG = scanner.next();
 
+        scanner.close();
+
         TextMessage message = new TextMessage(FROM_NUMBER, TO_NUMBER, MSG);
-        SmsSubmissionResponse response = this.nexmo.getSmsClient().submitMessage(message);
-        if (response.getMessages().get(0).getStatus() == MessageStatus.OK) {
-            System.out.println("Message sent successfully.");
-        } else {
-            System.out.println("Message failed with error: " + response.getMessages().get(0).getErrorText());
-        }
+
+        MessageSubmissionResponse response = this.messagingClient.submitMessage(message);
+        System.out.println(response.data);
     }
 }
